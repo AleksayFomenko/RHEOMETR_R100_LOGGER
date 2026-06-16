@@ -1,5 +1,5 @@
-Структура:
-
+# Структура:
+<pre>
 main.py                          ← точка входа: python main.py
 app/
 ├── main_window.py               ← главное окно, тулбар, компоновка
@@ -16,10 +16,12 @@ app/
     └── dialogs/
         ├── test_settings_dialog.py  ← оператор, материал, длит., темп-ра
         └── comm_settings_dialog.py  ← порт, baudrate, адрес, регистр
+</pre>
 
+---
 
-#запуск
+# Запуск
 .venv/bin/python main.py
 
-#сборка
+# Сборка
 .venv\Scripts\pyinstaller rheometr.spec
