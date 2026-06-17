@@ -1,0 +1,7 @@
+PyQt5==5.15.11
+pyqtgraph==0.14.0
+pyserial==3.5
+minimalmodbus==2.1.1
+numpy==2.4.4
+scipy==1.17.1
+reportlab==4.5.1
