@@ -119,12 +119,6 @@ def export_pdf(
             return "—"
         return f"{v:.3f}{(' ' + unit) if unit else ''}"
 
-    def _draw_footer(canvas, doc):
-        canvas.saveState()
-        canvas.setFont("Arial", 10)
-        canvas.drawRightString(A4[0] - 2 * cm, 1.2 * cm, "ООО «НИИЭМИ»")
-        canvas.restoreState()
-
     now = datetime.now()
     date_str = now.strftime("%d.%m.%Y")
     time_str = now.strftime("%H:%M:%S")
@@ -137,15 +131,9 @@ def export_pdf(
 
     styles = getSampleStyleSheet()
     styles["Title"].fontName  = "Arial"
-    styles["Title"].fontSize  = 18
-    styles["Title"].spaceAfter = 10
+    styles["Title"].fontSize  = 16
+    styles["Title"].spaceAfter = 5
 
-    body_style = ParagraphStyle(
-        name="Body",
-        fontName="Arial",
-        fontSize=14,
-        spaceAfter=12,
-    )
 
     doc = SimpleDocTemplate(
         filepath,
@@ -159,7 +147,7 @@ def export_pdf(
     elements = []
 
     # Заголовок
-    #elements.append(Paragraph("ООО «НИИЭМИ»", styles["Title"]))
+    elements.append(Paragraph("ООО «НИИЭМИ»", styles["Title"]))
     elements.append(Paragraph("Простокол испытаний ГОСТ Р 54547-2011", styles["Title"]))
 
     # Информационная таблица
@@ -212,9 +200,9 @@ def export_pdf(
     elements.append(params_table)
 
     try:
-        doc.build(elements, onFirstPage=_draw_footer, onLaterPages=_draw_footer)
+        doc.build(elements)
     finally:
-        os.unlink(tmp_path)
+        os.remove(tmp_path)
 
 
 # ── Экспорт отчёта (текст) ────────────────────────────────────────────────────

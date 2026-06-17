@@ -57,6 +57,7 @@ class GraphWidget(pg.PlotWidget):
             ax = self.getAxis(axis)
             ax.setTickFont(_TICK_FONT)
             ax.label.setFont(label_font)
+        self.setLimits(xMin=0)
         pi = self.getPlotItem()
         if _DEBUG_ALL_CURVES:
             pi.addLegend(offset=(10, 10))
