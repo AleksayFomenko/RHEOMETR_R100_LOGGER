@@ -49,8 +49,8 @@ class ParamsPanel(QWidget):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setMinimumWidth(190)
-        self.setMaximumWidth(260)
+        self.setMinimumWidth(260)
+        #self.setMaximumWidth(260)
         self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self._value_labels: dict[str, QLabel] = {}
         self._build_ui()
