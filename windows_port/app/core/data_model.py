@@ -67,6 +67,17 @@ class DataModel(QObject):
     peak_confirmed = pyqtSignal()        # → MainWindow обрезает график (фаза 0)
     mh_confirmed   = pyqtSignal()        # → MH зафиксирован, расчёт tc-параметров
 
+    # Состояние трекеров фазы 1 (ML → TS2 → MH), см. _reset_curve_tracking()
+    _curve_started:      bool
+    _ml_confirmed:       bool
+    _ml_candidate_value: float
+    _ml_last_update_t:   float
+    _ts2_crossed:        bool           # кривая пересекла ML+2
+    _mh_confirmed:       bool
+    _mh_confirmed_value: Optional[float]
+    _mh_candidate_value: float
+    _mh_last_update_t:   float
+
     def __init__(self, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self.times: List[float] = []
@@ -79,16 +90,7 @@ class DataModel(QObject):
         self._detect_peaks: bool = True  # False после trim и при импорте CSV
         self._reset_peak_state()
 
-        # Фаза 1: ML → TS2 → MH
-        self._curve_started:      bool           = False
-        self._ml_confirmed:       bool           = False
-        self._ml_candidate_value: float           = math.inf
-        self._ml_last_update_t:   float           = 0.0
-        self._ts2_crossed:        bool           = False  # кривая пересекла ML+2
-        self._mh_confirmed:       bool           = False
-        self._mh_confirmed_value: Optional[float] = None
-        self._mh_candidate_value: float           = -math.inf
-        self._mh_last_update_t:   float           = 0.0
+        self._reset_curve_tracking(curve_started=False)
 
     # ── Запись данных ─────────────────────────────────────────────────────────
 
@@ -135,15 +137,7 @@ class DataModel(QObject):
         self.peak_index    = 0
         self._reset_peak_state()
 
-        self._curve_started      = True
-        self._ml_confirmed       = False
-        self._ml_candidate_value = math.inf
-        self._ml_last_update_t   = 0.0
-        self._ts2_crossed        = False
-        self._mh_confirmed       = False
-        self._mh_confirmed_value = None
-        self._mh_candidate_value = -math.inf
-        self._mh_last_update_t   = 0.0
+        self._reset_curve_tracking(curve_started=True)
 
         self._recompute_params()
 
@@ -162,21 +156,14 @@ class DataModel(QObject):
         self._start_time     = None
         self._detect_peaks   = False
 
-        self._curve_started      = True
-        self._ml_confirmed       = False
-        self._ml_candidate_value = math.inf
-        self._ml_last_update_t   = 0.0
-        self._ts2_crossed        = False
-        self._mh_confirmed       = False
-        self._mh_confirmed_value = None
-        self._mh_candidate_value = -math.inf
-        self._mh_last_update_t   = 0.0
+        self._reset_curve_tracking(curve_started=True)
 
         for t, v in zip(self.times, self.filtered_values):
             # ML-трекер
             if v < self._ml_candidate_value:
                 self._ml_candidate_value = v
                 self._ml_last_update_t   = t
+                self._invalidate_stale_mh(t)
 
             # ML подтверждение
             if (not self._ml_confirmed
@@ -209,15 +196,7 @@ class DataModel(QObject):
         self._start_time = None
         self.peak_index  = 0
         self._detect_peaks       = True
-        self._curve_started      = False
-        self._ml_confirmed       = False
-        self._ml_candidate_value = math.inf
-        self._ml_last_update_t   = 0.0
-        self._ts2_crossed        = False
-        self._mh_confirmed       = False
-        self._mh_confirmed_value = None
-        self._mh_candidate_value = -math.inf
-        self._mh_last_update_t   = 0.0
+        self._reset_curve_tracking(curve_started=False)
         self._reset_peak_state()
         self.params_updated.emit(self.params)
 
@@ -245,6 +224,18 @@ class DataModel(QObject):
 
     def is_empty(self) -> bool:
         return len(self.times) == 0
+
+    def _reset_curve_tracking(self, curve_started: bool) -> None:
+        """Сбрасывает состояние трекеров фазы 1 (ML → TS2 → MH)."""
+        self._curve_started      = curve_started
+        self._ml_confirmed       = False
+        self._ml_candidate_value = math.inf
+        self._ml_last_update_t   = 0.0
+        self._ts2_crossed        = False
+        self._mh_confirmed       = False
+        self._mh_confirmed_value = None
+        self._mh_candidate_value = -math.inf
+        self._mh_last_update_t   = 0.0
 
     # ── Детекция начального пика (фаза 0) ────────────────────────────────────
 
@@ -297,6 +288,7 @@ class DataModel(QObject):
             if current_val < self._ml_candidate_value:
                 self._ml_candidate_value = current_val
                 self._ml_last_update_t   = current_t
+                self._invalidate_stale_mh(current_t)
 
                 if self._ts2_crossed and self._mh_last_update_t <= self._ml_last_update_t:
                     ts2_thr = self._candidate_value + 2.0
@@ -323,15 +315,14 @@ class DataModel(QObject):
                         if ht >= self._ml_last_update_t and hv >= ts2_thr:
                             self._ts2_crossed = True
                             break
-                elif current_val >= self._ml_candidate_value + 2.0:
+                elif current_val >= ts2_thr:
                     self._ts2_crossed = True
 
             # MH-трекер: только после пересечения TS2
             if self._ts2_crossed and not self._mh_confirmed:
                 if just_ml_confirmed:
                     # Бэкфилл: максимум начиная с момента первого пересечения ML+2
-                    ts2_thr   = self._ml_candidate_value + 2.0
-                    past_ts2  = False
+                    past_ts2 = False
                     for ht, hv in zip(self.times, self.filtered_values):
                         if ht <= self._ml_last_update_t:
                             continue
@@ -365,6 +356,24 @@ class DataModel(QObject):
         self.params_updated.emit(self.params)
         if just_confirmed:
             self.mh_confirmed.emit()
+
+    def _invalidate_stale_mh(self, ml_t: float) -> None:
+        """
+        MH физически обязан идти ПОСЛЕ ML по времени. Если ML только что
+        сдвинулся на более позднюю точку (найден новый, более глубокий
+        минимум), а уже найденный кандидат/зафиксированный MH был во времени
+        РАНЬШЕ этой новой точки ML — такой MH невалиден (он посчитан по
+        кривой, которая ещё не дошла до истинного минимума).
+
+        Сбрасываем поиск MH: кандидат обнуляется, дальше в этом же тике
+        MH-трекер начнёт заново набирать максимум с текущей точки — то есть
+        эффективно MAX(vals) на интервале [ml_t, конец данных].
+        """
+        if self._mh_last_update_t > 0 and ml_t > self._mh_last_update_t:
+            self._mh_candidate_value = -math.inf
+            self._mh_last_update_t   = 0.0
+            self._mh_confirmed       = False
+            self._mh_confirmed_value = None
 
     def _compute_tc_params(
         self,

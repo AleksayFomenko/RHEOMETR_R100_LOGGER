@@ -138,9 +138,9 @@ class ModbusWorker(QThread):
         cfg = self._cfg
         return self._instrument.read_float(
             registeraddress=cfg.register_address,
-            functioncode=4,
-            number_of_registers=2,
-            byteorder=0
+            functioncode=4,          # Input Registers
+            number_of_registers=2,   # физ. величина = float на 2 регистрах
+            byteorder=0,             # big-endian (ABCD)
         )
 
     # ── Симуляция ─────────────────────────────────────────────────────────────
