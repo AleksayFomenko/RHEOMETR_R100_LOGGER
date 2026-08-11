@@ -126,6 +126,7 @@ class ModbusWorker(QThread):
             instr.serial.parity   = cfg.parity
             instr.serial.stopbits = cfg.stop_bits
             instr.serial.timeout  = cfg.timeout
+            instr.clear_buffers_before_each_transaction = True
             self._instrument = instr
             self.connection_status.emit(True, f"Подключено: {cfg.port}")
             return True
@@ -135,9 +136,11 @@ class ModbusWorker(QThread):
 
     def _read_register(self) -> float:
         cfg = self._cfg
-        return self._instrument.read_register(
-            cfg.register_address,
-            numberOfDecimals=cfg.register_decimals,
+        return self._instrument.read_float(
+            registeraddress=cfg.register_address,
+            functioncode=4,
+            number_of_registers=2,
+            byteorder=0
         )
 
     # ── Симуляция ─────────────────────────────────────────────────────────────

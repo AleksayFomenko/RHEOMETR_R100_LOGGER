@@ -298,6 +298,15 @@ class DataModel(QObject):
                 self._ml_candidate_value = current_val
                 self._ml_last_update_t   = current_t
 
+                if self._ts2_crossed and self._mh_last_update_t <= self._ml_last_update_t:
+                    ts2_thr = self._candidate_value + 2.0
+                    best_val, best_t = -math.inf, 0.0
+                    for ht, hv in zip(self.times,self.filtered_values):
+                        if ht > self._ml_last_update_t and hv >= ts2_thr and hv > best_val:
+                            best_val, best_t = hv, ht
+                    self._mh_candidate_value = best_val
+                    self._mh_last_update_t = best_t
+
             just_ml_confirmed = False
             if (not self._ml_confirmed
                     and self._ml_candidate_value < math.inf
@@ -324,7 +333,7 @@ class DataModel(QObject):
                     ts2_thr   = self._ml_candidate_value + 2.0
                     past_ts2  = False
                     for ht, hv in zip(self.times, self.filtered_values):
-                        if ht < self._ml_last_update_t:
+                        if ht <= self._ml_last_update_t:
                             continue
                         if not past_ts2:
                             if hv >= ts2_thr:

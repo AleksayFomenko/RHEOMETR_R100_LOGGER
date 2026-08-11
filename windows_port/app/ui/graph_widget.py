@@ -24,7 +24,7 @@ _TITLE_SIZE  = "20pt"               # шрифт заголовка график
 pg.setConfigOption("background", "w")
 pg.setConfigOption("foreground", "k")
 
-_DEBUG_ALL_CURVES = False  # True → сырой + выпрямл. + фильтр.; False → только фильтр.
+_DEBUG_ALL_CURVES = True  # True → сырой + выпрямл. + фильтр.; False → только фильтр.
 
 
 class GraphWidget(pg.PlotWidget):
